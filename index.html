@@ -30,11 +30,16 @@
             font-family: 'Press Start 2P', cursive;
             color: #ffcc00;
         }
+        .high-score {
+            font-size: 20px;
+            color: #ffcc00;
+        }
     </style>
 </head>
 <body>
     <h1>Labib's Pong</h1>
     <h2>YOU CAN'T BEAT LABIB!!!</h2>
+    <div class="high-score">High Score: <span id="high-score">0</span></div>
     <select id="object-select">
         <option value="ball">Ball</option>
         <option value="rocket">Rocket</option>
@@ -44,6 +49,7 @@
     <button id="restart-button" style="display: none;">Restart Game</button>
     <canvas id="pong" width="800" height="400"></canvas>
     <audio id="background-music" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" loop></audio>
+    <audio id="hit-sound" src="https://www.soundjay.com/button/beep-07.wav"></audio>
     <script>
         const canvas = document.getElementById("pong");
         const context = canvas.getContext("2d");
@@ -52,12 +58,17 @@
         const restartButton = document.getElementById("restart-button");
         const objectSelect = document.getElementById("object-select");
         const music = document.getElementById("background-music");
+        const hitSound = document.getElementById("hit-sound");
         const message = document.createElement("div");
         message.style.textAlign = "center";
         message.style.color = "red";
         message.style.fontSize = "24px";
         message.style.display = "none";
         document.body.appendChild(message);
+        const highScoreDisplay = document.getElementById('high-score');
+
+        let highScore = localStorage.getItem('highScore') || 0;
+        highScoreDisplay.innerText = highScore;
 
         let gameInterval;
         const rocketImage = new Image();
@@ -203,6 +214,8 @@
                 const playerOrAI = ball.x < canvas.width / 2 ? player : ai;
 
                 if (collision(playerOrAI, ball)) {
+                    hitSound.currentTime = 0; // Reset sound time to play from start
+                    hitSound.play();
                     let collidePoint = (ball.y - (playerOrAI.y + playerOrAI.height / 2));
                     collidePoint = collidePoint / (playerOrAI.height / 2);
                     let angleRad = (Math.PI / 4) * collidePoint;
@@ -219,6 +232,11 @@
                     restartButton.style.display = "block";
                 } else if (ball.x + ball.radius > canvas.width) {
                     player.score++;
+                    if (player.score > highScore) {
+                        highScore = player.score;
+                        localStorage.setItem('highScore', highScore);
+                        highScoreDisplay.innerText = highScore;
+                    }
                     ai.speed += (player.score >= 2) ? 1 : 0;
                     resetObject();
                 }
@@ -233,6 +251,8 @@
                 const playerOrAI = rocket.x < canvas.width / 2 ? player : ai;
 
                 if (collision(playerOrAI, rocket)) {
+                    hitSound.currentTime = 0; // Reset sound time to play from start
+                    hitSound.play();
                     let collidePoint = (rocket.y - (playerOrAI.y + playerOrAI.height / 2));
                     collidePoint = collidePoint / (playerOrAI.height / 2);
                     let angleRad = (Math.PI / 4) * collidePoint;
@@ -249,7 +269,12 @@
                     restartButton.style.display = "block";
                 } else if (rocket.x + rocket.width / 2 > canvas.width) {
                     player.score++;
-      ai.speed += (player.score >= 2) ? 1 : 0;
+                    if (player.score > highScore) {
+                        highScore = player.score;
+                        localStorage.setItem('highScore', highScore);
+                        highScoreDisplay.innerText = highScore;
+                    }
+                    ai.speed += (player.score >= 2) ? 1 : 0;
                     resetObject();
                 }
             }
@@ -257,7 +282,7 @@
             ai.y += ((currentObject === "ball" ? ball.y : rocket.y) - (ai.y + ai.height / 2)) * 0.1;
 
             if (ai.y < 0) {
-                ai.y =0;
+                ai.y = 0;
             } else if (ai.y + ai.height > canvas.height) {
                 ai.y = canvas.height - ai.height;
             }
