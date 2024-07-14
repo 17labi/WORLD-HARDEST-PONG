@@ -67,7 +67,7 @@
         document.body.appendChild(message);
         const highScoreDisplay = document.getElementById('high-score');
 
-        let highScore = localStorage.getItem('highScore') || 0;
+        let highScore = parseInt(localStorage.getItem('highScore')) || 0;
         highScoreDisplay.innerText = highScore;
 
         let gameInterval;
@@ -157,6 +157,7 @@
         }
 
         function touchMovePaddle(event) {
+            event.preventDefault();
             const rect = canvas.getBoundingClientRect();
             player.y = event.touches[0].clientY - rect.top - player.height / 2;
 
@@ -341,7 +342,7 @@
             resetObject();
         });
         canvas.addEventListener("mousemove", movePaddle);
-        canvas.addEventListener("touchmove", touchMovePaddle);
+        canvas.addEventListener("touchmove", touchMovePaddle, { passive: false });
 
     </script>
 </body>
