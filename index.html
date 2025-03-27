@@ -6,15 +6,19 @@
     <style>
         body {
             font-family: 'Press Start 2P', cursive;
-            background-color: #0d0d0d;
+            background-color: #1a1a1a;
             color: #ffffff;
             text-align: center;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
         }
         canvas {
             display: block;
-            margin: 0 auto;
+            margin: 20px auto;
             background: #3c3c3c;
-            border: 2px solid #ffffff;
+            border: 4px solid #00ff00;
+            box-shadow: 0 0 20px #00ff00;
         }
         button, select {
             display: block;
@@ -24,98 +28,317 @@
             cursor: pointer;
             background-color: #ff6600;
             color: #000000;
-            border: none;
+            border: 2px solid #ffffff;
+            border-radius: 10px;
+            transition: background-color 0.3s, transform 0.3s;
+            font-family: 'Press Start 2P', cursive;
         }
-        h1, h2,h5 {
+        button:hover {
+            background-color: #ff3300;
+            transform: scale(1.1);
+        }
+        h1, h2, h5 {
             font-family: 'Press Start 2P', cursive;
             color: #ffcc00;
+            text-shadow: 0 0 10px #ffcc00;
         }
         .high-score {
             font-size: 20px;
             color: #ffcc00;
+            text-shadow: 0 0 10px #ffcc00;
+        }
+        .glow {
+            text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00, 0 0 30px #00ff00;
+        }
+        .menu {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .menu.hidden {
+            display: none;
+        }
+        .instructions {
+            font-size: 16px;
+            color: #ffffff;
+            margin: 20px;
+            max-width: 600px;
+            display: none;
+        }
+        .skin-selection, .paddle-selection {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+        .color-option {
+            width: 40px;
+            height: 40px;
+            margin: 10px;
+            border: 2px solid white;
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: inline-block;
+        }
+        .color-option:hover {
+            transform: scale(1.2);
+        }
+        .color-options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 300px;
+            margin: 20px auto;
+        }
+        #game-screen {
+            display: none;
         }
     </style>
 </head>
 <body>
-    <h1>Labib's Pong</h1>
-    <h2>YOU CAN'T BEAT LABIB!!!</h2>
-    <div class="high-score">High Score: <span id="high-score">0</span></div>
-    <select id="object-select">
-        <option value="ball">Ball</option>
-        <option value="rocket">Rocket</option>
-    </select>
-    <button id="start-button">Start Game</button>
-    <button id="stop-button" style="display: none;">Pause Game</button>
-    <button id="restart-button" style="display: none;">Restart Game</button>
-    <canvas id="pong" width="800" height="400"></canvas>
-    <audio id="background-music" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" loop></audio>
-    <audio id="hit-sound" src="https://www.soundjay.com/button/beep-07.wav"></audio>
+    <!-- Main Menu -->
+    <div class="menu" id="main-menu">
+        <h1 class="glow">Labib's Pong</h1>
+        <button id="start-menu-button">Start Game</button>
+        <button id="skin-selection-button">Select Ball/Rocket</button>
+        <button id="paddle-selection-button">Select Paddle Color</button>
+        <button id="instructions-button">How to Play</button>
+        <button id="reset-highscore-button">Reset High Score</button>
+    </div>
+
+    <!-- Instructions Menu -->
+    <div class="menu instructions" id="instructions">
+        <h3>How to Play</h3>
+        <p>1. Use your mouse or touch to move the paddle.</p>
+        <p>2. Prevent the ball/rocket from passing your paddle.</p>
+        <p>3. Score 8 points to win a burger!</p>
+        <p>4. Choose between Ball or Rocket mode for different challenges.</p>
+        <button id="back-button">Back to Menu</button>
+    </div>
+
+    <!-- Skin Selection Menu -->
+    <div class="menu skin-selection" id="skin-selection">
+        <h3>Select Ball/Rocket</h3>
+        <select id="object-select">
+            <option value="ball">Ball</option>
+            <option value="rocket">Rocket</option>
+        </select>
+        <button id="back-to-menu-button">Back to Menu</button>
+    </div>
+
+    <!-- Paddle Color Selection Menu -->
+    <div class="menu paddle-selection" id="paddle-selection">
+        <h3>Select Paddle Color</h3>
+        <div class="color-options">
+            <div class="color-option" style="background-color: #ff0000;" data-color="#ff0000"></div>
+            <div class="color-option" style="background-color: #0000ff;" data-color="#0000ff"></div>
+            <div class="color-option" style="background-color: #ffff00;" data-color="#ffff00"></div>
+            <div class="color-option" style="background-color: #800000;" data-color="#800000"></div>
+            <div class="color-option" style="background-color: #00ffff;" data-color="#00ffff"></div>
+            <div class="color-option" style="background-color: #ffffff;" data-color="#ffffff"></div>
+            <div class="color-option" style="background-color: #ff00ff;" data-color="#ff00ff"></div>
+        </div>
+        <button id="back-to-menu-button-paddle">Back to Menu</button>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen">
+        <h1 class="glow">Labib's Pong</h1>
+        <h2>YOU CAN'T BEAT LABIB!!!</h2>
+        <div class="high-score">High Score: <span id="high-score">0</span></div>
+        <button id="start-button">Start Game</button>
+        <button id="stop-button" style="display: none;">Pause Game</button>
+        <button id="restart-button" style="display: none;">Restart Game</button>
+        <button id="reset-highscore-game-button">Reset High Score</button>
+        <button id="back-to-main-menu-button">Back to Menu</button>
+        <canvas id="pong" width="800" height="400"></canvas>
+        <h5>Rotate your phone screen to get the best experience</h5>
+        <h5>Score 8 to get a burger as a prize</h5>
+    </div>
+
+    <!-- Audio Elements with multiple fallback sources -->
+    <audio id="background-music" preload="auto" loop>
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+        <source src="fallback-music.ogg" type="audio/ogg">
+        Your browser does not support the audio element.
+    </audio>
+
+    <audio id="hit-sound" preload="auto">
+        <source src="https://www.soundjay.com/button/sounds/beep-07.mp3" type="audio/mpeg">
+        <source src="fallback-hit.ogg" type="audio/ogg">
+        Your browser does not support the audio element.
+    </audio>
+
     <script>
+        // Canvas and Context
         const canvas = document.getElementById("pong");
         const context = canvas.getContext("2d");
+
+        // Menu Elements
+        const mainMenu = document.getElementById("main-menu");
+        const instructionsMenu = document.getElementById("instructions");
+        const skinSelectionMenu = document.getElementById("skin-selection");
+        const paddleSelectionMenu = document.getElementById("paddle-selection");
+        const gameScreen = document.getElementById("game-screen");
+
+        // Buttons
+        const startMenuButton = document.getElementById("start-menu-button");
+        const skinSelectionButton = document.getElementById("skin-selection-button");
+        const paddleSelectionButton = document.getElementById("paddle-selection-button");
+        const instructionsButton = document.getElementById("instructions-button");
+        const resetHighscoreButton = document.getElementById("reset-highscore-button");
+        const resetHighscoreGameButton = document.getElementById("reset-highscore-game-button");
+        const backButton = document.getElementById("back-button");
+        const backToMenuButton = document.getElementById("back-to-menu-button");
+        const backToMenuButtonPaddle = document.getElementById("back-to-menu-button-paddle");
+        const backToMainMenuButton = document.getElementById("back-to-main-menu-button");
         const startButton = document.getElementById("start-button");
         const stopButton = document.getElementById("stop-button");
         const restartButton = document.getElementById("restart-button");
         const objectSelect = document.getElementById("object-select");
+        const highScoreDisplay = document.getElementById("high-score");
+        const colorOptions = document.querySelectorAll(".color-option");
+
+        // Audio
+          // Improved Audio Handling
         const music = document.getElementById("background-music");
         const hitSound = document.getElementById("hit-sound");
-        const message = document.createElement("div");
-        message.style.textAlign = "center";
-        message.style.color = "red";
-        message.style.fontSize = "24px";
-        message.style.display = "none";
-        document.body.appendChild(message);
-        const highScoreDisplay = document.getElementById('high-score');
+        
+        // Function to safely play audio with error handling
+        function playAudio(audioElement) {
+            audioElement.play().catch(error => {
+                console.log("Audio playback failed:", error);
+                // You could show a muted mode notification here if desired
+            });
+        }
 
-        let highScore = parseInt(localStorage.getItem('highScore')) || 0;
-        highScoreDisplay.innerText = highScore;
+        // Modified startGame function with audio error handling
+        function startGame() {
+            startButton.style.display = "none";
+            stopButton.style.display = "block";
+            restartButton.style.display = "none";
+            gameInterval = setInterval(gameLoop, 1000 / 60);
+            
+            try {
+                playAudio(music);
+            } catch (e) {
+                console.log("Music playback error:", e);
+            }
+        }
 
+        // Modified collision detection with audio error handling
+        function collision(paddle, object) {
+            // ... (your existing collision detection code) ...
+            
+            if (collisionHappened) {
+                try {
+                    hitSound.currentTime = 0;
+                    playAudio(hitSound);
+                } catch (e) {
+                    console.log("Hit sound error:", e);
+                }
+                // ... (rest of your collision handling) ...
+            }
+        }
+        // Game Variables
+        let highScore = 0;
         let gameInterval;
-        const rocketImage = new Image();
-        rocketImage.src = "https://i.ibb.co/rQ0H90Q/rocket.png"; // Rocket image URL
-
-        const player = {
-            x: 0,
-            y: canvas.height / 2 - 50,
-            width: 10,
-            height: 100,
-            color: "red",
-            score: 0
-        };
-
-        const ai = {
-            x: canvas.width - 10,
-            y: canvas.height / 2 - 50,
-            width: 10,
-            height: 100,
-            color: "yellow",
-            score: 0,
-            speed: 4 // initial AI speed
-        };
-
-        const ball = {
-            x: canvas.width / 2,
-            y: canvas.height / 2,
-            radius: 10,
-            speed: 5,
-            dx: 5,
-            dy: 4,
-            color: "cyan"
-        };
-
-        const rocket = {
-            x: canvas.width / 2,
-            y: canvas.height / 2,
-            width: 40, // Adjusted width for the rocket image
-            height: 40, // Adjusted height for the rocket image
-            speed: 5,
-            dx: 5,
-            dy: 4,
-            image: rocketImage
-        };
-
         let currentObject = "ball";
+        let paddleColor = "#ff0000"; // Default red
 
+        // Initialize high score from localStorage
+        function initHighScore() {
+            const savedScore = localStorage.getItem("highScore");
+            highScore = savedScore ? parseInt(savedScore) : 0;
+            highScoreDisplay.innerText = highScore;
+        }
+
+        // Paddle and Object Properties
+        const player = { x: 0, y: canvas.height / 2 - 50, width: 10, height: 100, score: 0 };
+        const ai = { x: canvas.width - 10, y: canvas.height / 2 - 50, width: 10, height: 100, score: 0, speed: 4 };
+        const ball = { x: canvas.width / 2, y: canvas.height / 2, radius: 10, speed: 5, dx: 5, dy: 4, color: "cyan" };
+        const rocket = { x: canvas.width / 2, y: canvas.height / 2, width: 40, height: 40, speed: 5, dx: 5, dy: 4, image: new Image() };
+        rocket.image.src = "https://i.ibb.co/rQ0H90Q/rocket.png";
+
+        // Initialize the game
+        initHighScore();
+
+        // Menu Navigation Functions
+        function showMainMenu() {
+            mainMenu.style.display = "flex";
+            instructionsMenu.style.display = "none";
+            skinSelectionMenu.style.display = "none";
+            paddleSelectionMenu.style.display = "none";
+            gameScreen.style.display = "none";
+        }
+
+        function showInstructions() {
+            mainMenu.style.display = "none";
+            instructionsMenu.style.display = "flex";
+            skinSelectionMenu.style.display = "none";
+            paddleSelectionMenu.style.display = "none";
+            gameScreen.style.display = "none";
+        }
+
+        function showSkinSelection() {
+            mainMenu.style.display = "none";
+            instructionsMenu.style.display = "none";
+            skinSelectionMenu.style.display = "flex";
+            paddleSelectionMenu.style.display = "none";
+            gameScreen.style.display = "none";
+        }
+
+        function showPaddleSelection() {
+            mainMenu.style.display = "none";
+            instructionsMenu.style.display = "none";
+            skinSelectionMenu.style.display = "none";
+            paddleSelectionMenu.style.display = "flex";
+            gameScreen.style.display = "none";
+        }
+
+        function showGameScreen() {
+            mainMenu.style.display = "none";
+            instructionsMenu.style.display = "none";
+            skinSelectionMenu.style.display = "none";
+            paddleSelectionMenu.style.display = "none";
+            gameScreen.style.display = "block";
+        }
+
+        // Menu Event Listeners
+        startMenuButton.addEventListener("click", showGameScreen);
+        skinSelectionButton.addEventListener("click", showSkinSelection);
+        paddleSelectionButton.addEventListener("click", showPaddleSelection);
+        instructionsButton.addEventListener("click", showInstructions);
+        backButton.addEventListener("click", showMainMenu);
+        backToMenuButton.addEventListener("click", showMainMenu);
+        backToMenuButtonPaddle.addEventListener("click", showMainMenu);
+        backToMainMenuButton.addEventListener("click", () => {
+            showMainMenu();
+            stopGame();
+            resetGame();
+        });
+
+        // Reset High Score Buttons
+        resetHighscoreButton.addEventListener("click", resetHighScore);
+        resetHighscoreGameButton.addEventListener("click", resetHighScore);
+
+        function resetHighScore() {
+            highScore = 0;
+            localStorage.setItem("highScore", highScore);
+            highScoreDisplay.innerText = highScore;
+            alert("High score has been reset to 0!");
+        }
+
+        // Paddle Color Selection
+        colorOptions.forEach(option => {
+            option.addEventListener("click", function() {
+                paddleColor = this.getAttribute("data-color");
+                player.color = paddleColor;
+            });
+        });
+
+        // Game Functions
         function drawRect(x, y, w, h, color) {
             context.fillStyle = color;
             context.fillRect(x, y, w, h);
@@ -143,29 +366,6 @@
 
         function drawRocket(rocket) {
             context.drawImage(rocket.image, rocket.x - rocket.width / 2, rocket.y - rocket.height / 2, rocket.width, rocket.height);
-        }
-
-        function movePaddle(event) {
-            const rect = canvas.getBoundingClientRect();
-            player.y = event.clientY - rect.top - player.height / 2;
-
-            if (player.y < 0) {
-                player.y = 0;
-            } else if (player.y + player.height > canvas.height) {
-                player.y = canvas.height - player.height;
-            }
-        }
-
-        function touchMovePaddle(event) {
-            event.preventDefault();
-            const rect = canvas.getBoundingClientRect();
-            player.y = event.touches[0].clientY - rect.top - player.height / 2;
-
-            if (player.y < 0) {
-                player.y = 0;
-            } else if (player.y + player.height > canvas.height) {
-                player.y = canvas.height - player.height;
-            }
         }
 
         function resetObject() {
@@ -215,7 +415,7 @@
                 const playerOrAI = ball.x < canvas.width / 2 ? player : ai;
 
                 if (collision(playerOrAI, ball)) {
-                    hitSound.currentTime = 0; // Reset sound time to play from start
+                    hitSound.currentTime = 0;
                     hitSound.play();
                     let collidePoint = (ball.y - (playerOrAI.y + playerOrAI.height / 2));
                     collidePoint = collidePoint / (playerOrAI.height / 2);
@@ -227,16 +427,14 @@
                 }
 
                 if (ball.x - ball.radius < 0) {
-                    message.innerText = "You Lost!";
-                    message.style.display = "block";
                     stopGame();
                     restartButton.style.display = "block";
                 } else if (ball.x + ball.radius > canvas.width) {
                     player.score++;
-                    if (player.score > highScore) {
-                        highScore = player.score;
-                        localStorage.setItem('highScore', highScore);
-                        highScoreDisplay.innerText = highScore;
+                    updateHighScore();
+                    if (player.score === 8) {
+                        alert("Congratulations! You won a burger! 🍔");
+                        stopGame();
                     }
                     ai.speed += (player.score >= 2) ? 1 : 0;
                     resetObject();
@@ -252,7 +450,7 @@
                 const playerOrAI = rocket.x < canvas.width / 2 ? player : ai;
 
                 if (collision(playerOrAI, rocket)) {
-                    hitSound.currentTime = 0; // Reset sound time to play from start
+                    hitSound.currentTime = 0;
                     hitSound.play();
                     let collidePoint = (rocket.y - (playerOrAI.y + playerOrAI.height / 2));
                     collidePoint = collidePoint / (playerOrAI.height / 2);
@@ -264,16 +462,14 @@
                 }
 
                 if (rocket.x - rocket.width / 2 < 0) {
-                    message.innerText = "You Lost!";
-                    message.style.display = "block";
                     stopGame();
                     restartButton.style.display = "block";
                 } else if (rocket.x + rocket.width / 2 > canvas.width) {
                     player.score++;
-                    if (player.score > highScore) {
-                        highScore = player.score;
-                        localStorage.setItem('highScore', highScore);
-                        highScoreDisplay.innerText = highScore;
+                    updateHighScore();
+                    if (player.score === 8) {
+                        alert("Congratulations! You won a burger! 🍔");
+                        stopGame();
                     }
                     ai.speed += (player.score >= 2) ? 1 : 0;
                     resetObject();
@@ -294,7 +490,7 @@
             drawNet();
             drawText(player.score, canvas.width / 4, canvas.height / 5, "#ffffff");
             drawText(ai.score, 3 * canvas.width / 4, canvas.height / 5, "#ffffff");
-            drawRect(player.x, player.y, player.width, player.height, player.color);
+            drawRect(player.x, player.y, player.width, player.height, paddleColor);
             drawRect(ai.x, ai.y, ai.width, ai.height, ai.color);
 
             if (currentObject === "ball") {
@@ -310,7 +506,6 @@
         }
 
         function startGame() {
-            message.style.display = "none";
             startButton.style.display = "none";
             stopButton.style.display = "block";
             restartButton.style.display = "none";
@@ -326,14 +521,26 @@
         }
 
         function restartGame() {
+            resetGame();
+            startGame();
+        }
+
+        function resetGame() {
             player.score = 0;
             ai.score = 0;
             ai.speed = 4;
             resetObject();
-            message.style.display = "none";
-            startGame();
         }
 
+        function updateHighScore() {
+            if (player.score > highScore) {
+                highScore = player.score;
+                localStorage.setItem("highScore", highScore);
+                highScoreDisplay.innerText = highScore;
+            }
+        }
+
+        // Game Event Listeners
         startButton.addEventListener("click", startGame);
         stopButton.addEventListener("click", stopGame);
         restartButton.addEventListener("click", restartGame);
@@ -341,11 +548,49 @@
             currentObject = objectSelect.value;
             resetObject();
         });
-        canvas.addEventListener("mousemove", movePaddle);
-        canvas.addEventListener("touchmove", touchMovePaddle, { passive: false });
 
+        // Player Paddle Movement
+        canvas.addEventListener("mousemove", (e) => {
+            const rect = canvas.getBoundingClientRect();
+            player.y = e.clientY - rect.top - player.height / 2;
+            if (player.y < 0) player.y = 0;
+            if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+        });
+
+        // Improved touch event handling
+        let isTouchMoving = false;
+
+        canvas.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            isTouchMoving = true;
+            handleTouchMove(e);
+        }, { passive: false });
+
+        canvas.addEventListener("touchmove", (e) => {
+            if (isTouchMoving) {
+                e.preventDefault();
+                handleTouchMove(e);
+            }
+        }, { passive: false });
+
+        canvas.addEventListener("touchend", () => {
+            isTouchMoving = false;
+        });
+
+        function handleTouchMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            player.y = touch.clientY - rect.top - player.height / 2;
+            
+            // Boundary checking
+            if (player.y < 0) player.y = 0;
+            if (player.y + player.height > canvas.height) {
+                player.y = canvas.height - player.height;
+            }
+        }
+
+        // Initialize by showing main menu
+        showMainMenu();
     </script>
-    <h5>Rotate your phone screen to get the best experience </h5>
-<h5> score 8 to get a burger as a prize</h5>
 </body>
 </html>
