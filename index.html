@@ -67,7 +67,7 @@
             max-width: 600px;
             display: none;
         }
-        .skin-selection, .paddle-selection {
+        .skin-selection, .paddle-selection, .theme-selection {
             display: none;
             flex-direction: column;
             align-items: center;
@@ -94,17 +94,64 @@
         #game-screen {
             display: none;
         }
+        .theme-option {
+            margin: 15px;
+            padding: 15px;
+            border: 3px solid;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 300px;
+        }
+        #normal-theme {
+            border-color: #00ff00;
+        }
+        #dictator-theme {
+            border-color: #006a4e;
+            background: rgba(0,106,78,0.2);
+        }
+        .theme-option:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px currentColor;
+        }
+        .theme-title {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .theme-desc {
+            font-size: 12px;
+        }
+        .bangladesh-flag {
+            background: linear-gradient(to bottom, #006a4e 50%, #f42a41 50%);
+        }
+        .india-flag {
+            background: linear-gradient(to bottom, #ff9933 33%, #ffffff 33%, #ffffff 66%, #138808 66%);
+        }
     </style>
 </head>
 <body>
     <!-- Main Menu -->
     <div class="menu" id="main-menu">
         <h1 class="glow">Labib's Pong</h1>
+        <button id="theme-selection-button">Select Theme</button>
         <button id="start-menu-button">Start Game</button>
         <button id="skin-selection-button">Select Ball/Rocket</button>
         <button id="paddle-selection-button">Select Paddle Color</button>
         <button id="instructions-button">How to Play</button>
         <button id="reset-highscore-button">Reset High Score</button>
+    </div>
+
+    <!-- Theme Selection Menu -->
+    <div class="menu theme-selection" id="theme-selection">
+        <h1 class="glow">Select Theme</h1>
+        <div id="normal-theme" class="theme-option">
+            <div class="theme-title">NORMAL MODE</div>
+            <div class="theme-desc">Classic Retro Pong Experience</div>
+        </div>
+        <div id="dictator-theme" class="theme-option">
+            <div class="theme-title">DICTATOR MODE</div>
+            <div class="theme-desc">Sheikh Hasina Edition</div>
+        </div>
+        <button id="back-from-theme-button">Back to Menu</button>
     </div>
 
     <!-- Instructions Menu -->
@@ -144,8 +191,8 @@
 
     <!-- Game Screen -->
     <div id="game-screen">
-        <h1 class="glow">Labib's Pong</h1>
-        <h2>YOU CAN'T BEAT LABIB!!!</h2>
+        <h1 class="glow" id="game-title">Labib's Pong</h1>
+        <h2 id="game-subtitle">YOU CAN'T BEAT LABIB!!!</h2>
         <div class="high-score">High Score: <span id="high-score">0</span></div>
         <button id="start-button">Start Game</button>
         <button id="stop-button" style="display: none;">Pause Game</button>
@@ -157,33 +204,40 @@
         <h5>Score 8 to get a burger as a prize</h5>
     </div>
 
-    <!-- Audio Elements with multiple fallback sources -->
+    <!-- Audio Elements -->
     <audio id="background-music" preload="auto" loop>
         <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
-        <source src="fallback-music.ogg" type="audio/ogg">
-        Your browser does not support the audio element.
     </audio>
-
     <audio id="hit-sound" preload="auto">
         <source src="https://www.soundjay.com/button/sounds/beep-07.mp3" type="audio/mpeg">
-        <source src="fallback-hit.ogg" type="audio/ogg">
-        Your browser does not support the audio element.
     </audio>
 
     <script>
-        // Canvas and Context
+        // ======================
+        // 1. GET ALL DOM ELEMENTS
+        // ======================
         const canvas = document.getElementById("pong");
         const context = canvas.getContext("2d");
-
-        // Menu Elements
+        
+        // Game screen elements
+        const startButton = document.getElementById("start-button");
+        const stopButton = document.getElementById("stop-button");
+        const restartButton = document.getElementById("restart-button");
+        const highScoreDisplay = document.getElementById("high-score");
+        const gameTitle = document.getElementById("game-title");
+        const gameSubtitle = document.getElementById("game-subtitle");
+        
+        // Menu elements
         const mainMenu = document.getElementById("main-menu");
         const instructionsMenu = document.getElementById("instructions");
         const skinSelectionMenu = document.getElementById("skin-selection");
         const paddleSelectionMenu = document.getElementById("paddle-selection");
+        const themeSelectionMenu = document.getElementById("theme-selection");
         const gameScreen = document.getElementById("game-screen");
-
+        
         // Buttons
         const startMenuButton = document.getElementById("start-menu-button");
+        const themeSelectionButton = document.getElementById("theme-selection-button");
         const skinSelectionButton = document.getElementById("skin-selection-button");
         const paddleSelectionButton = document.getElementById("paddle-selection-button");
         const instructionsButton = document.getElementById("instructions-button");
@@ -192,136 +246,92 @@
         const backButton = document.getElementById("back-button");
         const backToMenuButton = document.getElementById("back-to-menu-button");
         const backToMenuButtonPaddle = document.getElementById("back-to-menu-button-paddle");
+        const backFromThemeButton = document.getElementById("back-from-theme-button");
         const backToMainMenuButton = document.getElementById("back-to-main-menu-button");
-        const startButton = document.getElementById("start-button");
-        const stopButton = document.getElementById("stop-button");
-        const restartButton = document.getElementById("restart-button");
         const objectSelect = document.getElementById("object-select");
-        const highScoreDisplay = document.getElementById("high-score");
+        const normalThemeOption = document.getElementById("normal-theme");
+        const dictatorThemeOption = document.getElementById("dictator-theme");
         const colorOptions = document.querySelectorAll(".color-option");
-
-        // Audio
-          // Improved Audio Handling
+        
+        // Audio elements
         const music = document.getElementById("background-music");
         const hitSound = document.getElementById("hit-sound");
-        
-        // Function to safely play audio with error handling
-        function playAudio(audioElement) {
-            audioElement.play().catch(error => {
-                console.log("Audio playback failed:", error);
-                // You could show a muted mode notification here if desired
-            });
-        }
 
-        // Modified startGame function with audio error handling
-        function startGame() {
-            startButton.style.display = "none";
-            stopButton.style.display = "block";
-            restartButton.style.display = "none";
-            gameInterval = setInterval(gameLoop, 1000 / 60);
-            
-            try {
-                playAudio(music);
-            } catch (e) {
-                console.log("Music playback error:", e);
-            }
-        }
-
-        // Modified collision detection with audio error handling
-        function collision(paddle, object) {
-            // ... (your existing collision detection code) ...
-            
-            if (collisionHappened) {
-                try {
-                    hitSound.currentTime = 0;
-                    playAudio(hitSound);
-                } catch (e) {
-                    console.log("Hit sound error:", e);
-                }
-                // ... (rest of your collision handling) ...
-            }
-        }
-        // Game Variables
+        // ======================
+        // 2. DECLARE GAME VARIABLES
+        // ======================
         let highScore = 0;
         let gameInterval;
         let currentObject = "ball";
-        let paddleColor = "#ff0000"; // Default red
+        let paddleColor = "#ff0000";
+        let currentTheme = "normal";
 
-        // Initialize high score from localStorage
+        // ======================
+        // 3. INITIALIZE GAME OBJECTS
+        // ======================
+        const player = { 
+            x: 0, 
+            y: canvas.height/2 - 50, 
+            width: 10, 
+            height: 100, 
+            score: 0,
+            color: "#ff0000"
+        };
+        
+        const ai = { 
+            x: canvas.width - 10, 
+            y: canvas.height/2 - 50, 
+            width: 10, 
+            height: 100, 
+            score: 0, 
+            speed: 4,
+            color: "#0000ff"
+        };
+        
+        const ball = { 
+            x: canvas.width/2, 
+            y: canvas.height/2, 
+            radius: 10, 
+            speed: 5, 
+            dx: 5, 
+            dy: 4, 
+            color: "cyan" 
+        };
+        
+        const rocket = { 
+            x: canvas.width/2, 
+            y: canvas.height/2, 
+            width: 40, 
+            height: 40, 
+            speed: 5, 
+            dx: 5, 
+            dy: 4, 
+            image: new Image() 
+        };
+        rocket.image.src = "https://i.ibb.co/rQ0H90Q/rocket.png";
+        
+        const hasinaBall = { 
+            x: canvas.width/2, 
+            y: canvas.height/2, 
+            width: 40, 
+            height: 40, 
+            speed: 5, 
+            dx: 5, 
+            dy: 4,
+            image: new Image()
+        };
+        hasinaBall.image.src = "https://i.postimg.cc/5XpVYWyq/hasina.jpg";
+
+        // ======================
+        // 4. GAME FUNCTIONS
+        // ======================
+
+        // Initialization functions
         function initHighScore() {
             const savedScore = localStorage.getItem("highScore");
             highScore = savedScore ? parseInt(savedScore) : 0;
             highScoreDisplay.innerText = highScore;
         }
-
-        // Paddle and Object Properties
-        const player = { x: 0, y: canvas.height / 2 - 50, width: 10, height: 100, score: 0 };
-        const ai = { x: canvas.width - 10, y: canvas.height / 2 - 50, width: 10, height: 100, score: 0, speed: 4 };
-        const ball = { x: canvas.width / 2, y: canvas.height / 2, radius: 10, speed: 5, dx: 5, dy: 4, color: "cyan" };
-        const rocket = { x: canvas.width / 2, y: canvas.height / 2, width: 40, height: 40, speed: 5, dx: 5, dy: 4, image: new Image() };
-        rocket.image.src = "https://i.ibb.co/rQ0H90Q/rocket.png";
-
-        // Initialize the game
-        initHighScore();
-
-        // Menu Navigation Functions
-        function showMainMenu() {
-            mainMenu.style.display = "flex";
-            instructionsMenu.style.display = "none";
-            skinSelectionMenu.style.display = "none";
-            paddleSelectionMenu.style.display = "none";
-            gameScreen.style.display = "none";
-        }
-
-        function showInstructions() {
-            mainMenu.style.display = "none";
-            instructionsMenu.style.display = "flex";
-            skinSelectionMenu.style.display = "none";
-            paddleSelectionMenu.style.display = "none";
-            gameScreen.style.display = "none";
-        }
-
-        function showSkinSelection() {
-            mainMenu.style.display = "none";
-            instructionsMenu.style.display = "none";
-            skinSelectionMenu.style.display = "flex";
-            paddleSelectionMenu.style.display = "none";
-            gameScreen.style.display = "none";
-        }
-
-        function showPaddleSelection() {
-            mainMenu.style.display = "none";
-            instructionsMenu.style.display = "none";
-            skinSelectionMenu.style.display = "none";
-            paddleSelectionMenu.style.display = "flex";
-            gameScreen.style.display = "none";
-        }
-
-        function showGameScreen() {
-            mainMenu.style.display = "none";
-            instructionsMenu.style.display = "none";
-            skinSelectionMenu.style.display = "none";
-            paddleSelectionMenu.style.display = "none";
-            gameScreen.style.display = "block";
-        }
-
-        // Menu Event Listeners
-        startMenuButton.addEventListener("click", showGameScreen);
-        skinSelectionButton.addEventListener("click", showSkinSelection);
-        paddleSelectionButton.addEventListener("click", showPaddleSelection);
-        instructionsButton.addEventListener("click", showInstructions);
-        backButton.addEventListener("click", showMainMenu);
-        backToMenuButton.addEventListener("click", showMainMenu);
-        backToMenuButtonPaddle.addEventListener("click", showMainMenu);
-        backToMainMenuButton.addEventListener("click", () => {
-            showMainMenu();
-            stopGame();
-            resetGame();
-        });
-
-        // Reset High Score Buttons
-        resetHighscoreButton.addEventListener("click", resetHighScore);
-        resetHighscoreGameButton.addEventListener("click", resetHighScore);
 
         function resetHighScore() {
             highScore = 0;
@@ -330,15 +340,23 @@
             alert("High score has been reset to 0!");
         }
 
-        // Paddle Color Selection
-        colorOptions.forEach(option => {
-            option.addEventListener("click", function() {
-                paddleColor = this.getAttribute("data-color");
+        // Theme functions
+        function applyTheme(theme) {
+            currentTheme = theme;
+            if(theme === "dictator") {
+                gameTitle.textContent = "DICTATOR PONG";
+                gameSubtitle.textContent = "GLORY TO BANGLADESH!";
+                player.color = "bangladesh";
+                ai.color = "india";
+            } else {
+                gameTitle.textContent = "Labib's Pong";
+                gameSubtitle.textContent = "YOU CAN'T BEAT LABIB!!!";
                 player.color = paddleColor;
-            });
-        });
+                ai.color = "#0000ff";
+            }
+        }
 
-        // Game Functions
+        // Drawing functions
         function drawRect(x, y, w, h, color) {
             context.fillStyle = color;
             context.fillRect(x, y, w, h);
@@ -368,8 +386,59 @@
             context.drawImage(rocket.image, rocket.x - rocket.width / 2, rocket.y - rocket.height / 2, rocket.width, rocket.height);
         }
 
+        function drawPaddle(x, y, w, h, color) {
+            if(color === "bangladesh") {
+                // Bangladesh flag paddle
+                context.fillStyle = "#006a4e";
+                context.fillRect(x, y, w, h/2);
+                context.fillStyle = "#f42a41";
+                context.fillRect(x, y + h/2, w, h/2);
+                
+                // Add circle
+                context.beginPath();
+                context.arc(x + w/2, y + h/2, h/4, 0, Math.PI*2);
+                context.fillStyle = "#f42a41";
+                context.fill();
+            } 
+            else if(color === "india") {
+                // India flag paddle
+                context.fillStyle = "#ff9933";
+                context.fillRect(x, y, w, h/3);
+                context.fillStyle = "#ffffff";
+                context.fillRect(x, y + h/3, w, h/3);
+                context.fillStyle = "#138808";
+                context.fillRect(x, y + 2*h/3, w, h/3);
+            }
+            else {
+                context.fillStyle = color;
+                context.fillRect(x, y, w, h);
+            }
+        }
+
+        function drawHasina() {
+            context.save();
+            const angle = Math.atan2(hasinaBall.dy, hasinaBall.dx);
+            context.translate(hasinaBall.x, hasinaBall.y);
+            context.rotate(angle);
+            context.drawImage(
+                hasinaBall.image,
+                -hasinaBall.width/2, 
+                -hasinaBall.height/2,
+                hasinaBall.width,
+                hasinaBall.height
+            );
+            context.restore();
+        }
+
+        // Game logic functions
         function resetObject() {
-            if (currentObject === "ball") {
+            if (currentTheme === "dictator") {
+                hasinaBall.x = canvas.width / 2;
+                hasinaBall.y = canvas.height / 2;
+                hasinaBall.dx = -hasinaBall.dx;
+                hasinaBall.speed = 5;
+            }
+            else if (currentObject === "ball") {
                 ball.x = canvas.width / 2;
                 ball.y = canvas.height / 2;
                 ball.dx = -ball.dx;
@@ -388,7 +457,13 @@
             paddle.left = paddle.x;
             paddle.right = paddle.x + paddle.width;
 
-            if (currentObject === "ball") {
+            if (currentTheme === "dictator") {
+                object.top = object.y - object.height / 2;
+                object.bottom = object.y + object.height / 2;
+                object.left = object.x - object.width / 2;
+                object.right = object.x + object.width / 2;
+            }
+            else if (currentObject === "ball") {
                 object.top = object.y - object.radius;
                 object.bottom = object.y + object.radius;
                 object.left = object.x - object.radius;
@@ -404,98 +479,89 @@
         }
 
         function update() {
-            if (currentObject === "ball") {
-                ball.x += ball.dx;
-                ball.y += ball.dy;
-
-                if (ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) {
-                    ball.dy = -ball.dy;
-                }
-
-                const playerOrAI = ball.x < canvas.width / 2 ? player : ai;
-
-                if (collision(playerOrAI, ball)) {
-                    hitSound.currentTime = 0;
-                    hitSound.play();
-                    let collidePoint = (ball.y - (playerOrAI.y + playerOrAI.height / 2));
-                    collidePoint = collidePoint / (playerOrAI.height / 2);
-                    let angleRad = (Math.PI / 4) * collidePoint;
-                    let direction = ball.x < canvas.width / 2 ? 1 : -1;
-                    ball.dx = direction * ball.speed * Math.cos(angleRad);
-                    ball.dy = ball.speed * Math.sin(angleRad);
-                    ball.speed += 0.5;
-                }
-
-                if (ball.x - ball.radius < 0) {
-                    stopGame();
-                    restartButton.style.display = "block";
-                } else if (ball.x + ball.radius > canvas.width) {
-                    player.score++;
-                    updateHighScore();
-                    if (player.score === 8) {
-                        alert("Congratulations! You won a burger! 🍔");
-                        stopGame();
-                    }
-                    ai.speed += (player.score >= 2) ? 1 : 0;
-                    resetObject();
-                }
+            let activeObject;
+            
+            if(currentTheme === "dictator") {
+                activeObject = hasinaBall;
+            } else if(currentObject === "ball") {
+                activeObject = ball;
             } else {
-                rocket.x += rocket.dx;
-                rocket.y += rocket.dy;
+                activeObject = rocket;
+            }
 
-                if (rocket.y + rocket.height / 2 > canvas.height || rocket.y - rocket.height / 2 < 0) {
-                    rocket.dy = -rocket.dy;
-                }
+            activeObject.x += activeObject.dx;
+            activeObject.y += activeObject.dy;
 
-                const playerOrAI = rocket.x < canvas.width / 2 ? player : ai;
+            // Boundary collision
+            if(activeObject.y + (activeObject.radius || activeObject.height/2) > canvas.height || 
+               activeObject.y - (activeObject.radius || activeObject.height/2) < 0) {
+                activeObject.dy = -activeObject.dy;
+            }
 
-                if (collision(playerOrAI, rocket)) {
-                    hitSound.currentTime = 0;
-                    hitSound.play();
-                    let collidePoint = (rocket.y - (playerOrAI.y + playerOrAI.height / 2));
-                    collidePoint = collidePoint / (playerOrAI.height / 2);
-                    let angleRad = (Math.PI / 4) * collidePoint;
-                    let direction = rocket.x < canvas.width / 2 ? 1 : -1;
-                    rocket.dx = direction * rocket.speed * Math.cos(angleRad);
-                    rocket.dy = rocket.speed * Math.sin(angleRad);
-                    rocket.speed += 0.5;
-                }
+            const playerOrAI = activeObject.x < canvas.width/2 ? player : ai;
 
-                if (rocket.x - rocket.width / 2 < 0) {
+            if(collision(playerOrAI, activeObject)) {
+                hitSound.currentTime = 0;
+                hitSound.play();
+                
+                let collidePoint = (activeObject.y - (playerOrAI.y + playerOrAI.height/2));
+                collidePoint = collidePoint / (playerOrAI.height/2);
+                
+                let angleRad = (Math.PI/4) * collidePoint;
+                let direction = activeObject.x < canvas.width/2 ? 1 : -1;
+                
+                activeObject.dx = direction * activeObject.speed * Math.cos(angleRad);
+                activeObject.dy = activeObject.speed * Math.sin(angleRad);
+                activeObject.speed += 0.5;
+            }
+
+            // Scoring
+            if(activeObject.x - (activeObject.radius || activeObject.width/2) < 0) {
+                stopGame();
+                restartButton.style.display = "block";
+            } 
+            else if(activeObject.x + (activeObject.radius || activeObject.width/2) > canvas.width) {
+                player.score++;
+                updateHighScore();
+                if(player.score === 8) {
+                    alert(currentTheme === "dictator" ? 
+                        "Glory to Bangladesh! You won a burger! 🍔" : 
+                        "Congratulations! You won a burger! 🍔");
                     stopGame();
-                    restartButton.style.display = "block";
-                } else if (rocket.x + rocket.width / 2 > canvas.width) {
-                    player.score++;
-                    updateHighScore();
-                    if (player.score === 8) {
-                        alert("Congratulations! You won a burger! 🍔");
-                        stopGame();
-                    }
-                    ai.speed += (player.score >= 2) ? 1 : 0;
-                    resetObject();
                 }
+                ai.speed += (player.score >= 2) ? 1 : 0;
+                resetObject();
             }
 
-            ai.y += ((currentObject === "ball" ? ball.y : rocket.y) - (ai.y + ai.height / 2)) * 0.1;
-
-            if (ai.y < 0) {
-                ai.y = 0;
-            } else if (ai.y + ai.height > canvas.height) {
-                ai.y = canvas.height - ai.height;
-            }
+            // AI movement
+            ai.y += (activeObject.y - (ai.y + ai.height/2)) * 0.1;
+            ai.y = Math.max(0, Math.min(canvas.height - ai.height, ai.y));
         }
 
         function render() {
-            drawRect(0, 0, canvas.width, canvas.height, "#000000");
+            // Clear canvas
+            context.fillStyle = "#000000";
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw net
             drawNet();
-            drawText(player.score, canvas.width / 4, canvas.height / 5, "#ffffff");
-            drawText(ai.score, 3 * canvas.width / 4, canvas.height / 5, "#ffffff");
-            drawRect(player.x, player.y, player.width, player.height, paddleColor);
-            drawRect(ai.x, ai.y, ai.width, ai.height, ai.color);
-
-            if (currentObject === "ball") {
+            
+            // Draw scores
+            drawText(player.score, canvas.width/4, canvas.height/5, "#ffffff");
+            drawText(ai.score, 3*canvas.width/4, canvas.height/5, "#ffffff");
+            
+            // Draw paddles with theme
+            drawPaddle(player.x, player.y, player.width, player.height, player.color);
+            drawPaddle(ai.x, ai.y, ai.width, ai.height, ai.color);
+            
+            // Draw ball based on theme and selection
+            if(currentTheme === "dictator") {
+                drawHasina();
+            } 
+            else if(currentObject === "ball") {
                 drawCircle(ball.x, ball.y, ball.radius, ball.color);
-            } else {
+            } 
+            else {
                 drawRocket(rocket);
             }
         }
@@ -505,12 +571,17 @@
             render();
         }
 
+        // Game control functions
         function startGame() {
             startButton.style.display = "none";
             stopButton.style.display = "block";
             restartButton.style.display = "none";
             gameInterval = setInterval(gameLoop, 1000 / 60);
-            music.play();
+            try {
+                music.play();
+            } catch (e) {
+                console.log("Music playback error:", e);
+            }
         }
 
         function stopGame() {
@@ -540,10 +611,110 @@
             }
         }
 
-        // Game Event Listeners
+        // Menu navigation functions
+        function showMainMenu() {
+            mainMenu.style.display = "flex";
+            instructionsMenu.style.display = "none";
+            skinSelectionMenu.style.display = "none";
+            paddleSelectionMenu.style.display = "none";
+            themeSelectionMenu.style.display = "none";
+            gameScreen.style.display = "none";
+        }
+
+        function showInstructions() {
+            mainMenu.style.display = "none";
+            instructionsMenu.style.display = "flex";
+            skinSelectionMenu.style.display = "none";
+            paddleSelectionMenu.style.display = "none";
+            themeSelectionMenu.style.display = "none";
+            gameScreen.style.display = "none";
+        }
+
+        function showSkinSelection() {
+            mainMenu.style.display = "none";
+            instructionsMenu.style.display = "none";
+            skinSelectionMenu.style.display = "flex";
+            paddleSelectionMenu.style.display = "none";
+            themeSelectionMenu.style.display = "none";
+            gameScreen.style.display = "none";
+        }
+
+        function showPaddleSelection() {
+            mainMenu.style.display = "none";
+            instructionsMenu.style.display = "none";
+            skinSelectionMenu.style.display = "none";
+            paddleSelectionMenu.style.display = "flex";
+            themeSelectionMenu.style.display = "none";
+            gameScreen.style.display = "none";
+        }
+
+        function showThemeSelection() {
+            mainMenu.style.display = "none";
+            instructionsMenu.style.display = "none";
+            skinSelectionMenu.style.display = "none";
+            paddleSelectionMenu.style.display = "none";
+            themeSelectionMenu.style.display = "flex";
+            gameScreen.style.display = "none";
+        }
+
+        function showGameScreen() {
+            mainMenu.style.display = "none";
+            instructionsMenu.style.display = "none";
+            skinSelectionMenu.style.display = "none";
+            paddleSelectionMenu.style.display = "none";
+            themeSelectionMenu.style.display = "none";
+            gameScreen.style.display = "block";
+        }
+
+        // Audio functions
+        function playAudio(audioElement) {
+            audioElement.play().catch(error => {
+                console.log("Audio playback failed:", error);
+            });
+        }
+
+        // ======================
+        // 5. SET UP EVENT LISTENERS
+        // ======================
         startButton.addEventListener("click", startGame);
         stopButton.addEventListener("click", stopGame);
         restartButton.addEventListener("click", restartGame);
+        
+        startMenuButton.addEventListener("click", showGameScreen);
+        themeSelectionButton.addEventListener("click", showThemeSelection);
+        skinSelectionButton.addEventListener("click", showSkinSelection);
+        paddleSelectionButton.addEventListener("click", showPaddleSelection);
+        instructionsButton.addEventListener("click", showInstructions);
+        resetHighscoreButton.addEventListener("click", resetHighScore);
+        resetHighscoreGameButton.addEventListener("click", resetHighScore);
+        backButton.addEventListener("click", showMainMenu);
+        backToMenuButton.addEventListener("click", showMainMenu);
+        backToMenuButtonPaddle.addEventListener("click", showMainMenu);
+        backFromThemeButton.addEventListener("click", showMainMenu);
+        backToMainMenuButton.addEventListener("click", () => {
+            showMainMenu();
+            stopGame();
+            resetGame();
+        });
+
+        normalThemeOption.addEventListener("click", function() {
+            applyTheme("normal");
+            showGameScreen();
+        });
+
+        dictatorThemeOption.addEventListener("click", function() {
+            applyTheme("dictator");
+            showGameScreen();
+        });
+
+        // Paddle Color Selection
+        colorOptions.forEach(option => {
+            option.addEventListener("click", function() {
+                paddleColor = this.getAttribute("data-color");
+                player.color = paddleColor;
+            });
+        });
+
         objectSelect.addEventListener("change", () => {
             currentObject = objectSelect.value;
             resetObject();
@@ -557,9 +728,8 @@
             if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
         });
 
-        // Improved touch event handling
+        // Touch controls
         let isTouchMoving = false;
-
         canvas.addEventListener("touchstart", (e) => {
             e.preventDefault();
             isTouchMoving = true;
@@ -581,15 +751,13 @@
             const rect = canvas.getBoundingClientRect();
             const touch = e.touches[0];
             player.y = touch.clientY - rect.top - player.height / 2;
-            
-            // Boundary checking
-            if (player.y < 0) player.y = 0;
-            if (player.y + player.height > canvas.height) {
-                player.y = canvas.height - player.height;
-            }
+            player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
         }
 
-        // Initialize by showing main menu
+        // ======================
+        // 6. INITIALIZE THE GAME
+        // ======================
+        initHighScore();
         showMainMenu();
     </script>
 </body>
