@@ -3,6 +3,9 @@
 <head>
     <title>Labib's Pong</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Press+Start+2P">
+    <!-- Add Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
         body {
             font-family: 'Press Start 2P', cursive;
@@ -20,7 +23,7 @@
             border: 4px solid #00ff00;
             box-shadow: 0 0 20px #00ff00;
         }
-        button, select {
+        button, select, input {
             display: block;
             margin: 20px auto;
             padding: 10px 20px;
@@ -37,7 +40,7 @@
             background-color: #ff3300;
             transform: scale(1.1);
         }
-        h1, h2, h5 {
+        h1, h2, h3, h4, h5 {
             font-family: 'Press Start 2P', cursive;
             color: #ffcc00;
             text-shadow: 0 0 10px #ffcc00;
@@ -67,7 +70,7 @@
             max-width: 600px;
             display: none;
         }
-        .skin-selection, .paddle-selection, .theme-selection {
+        .skin-selection, .paddle-selection, .theme-selection, .name-input, .leaderboard {
             display: none;
             flex-direction: column;
             align-items: center;
@@ -126,6 +129,32 @@
         .india-flag {
             background: linear-gradient(to bottom, #ff9933 33%, #ffffff 33%, #ffffff 66%, #138808 66%);
         }
+        #leaderboard-table {
+            width: 80%;
+            max-width: 500px;
+            margin: 20px auto;
+            border-collapse: collapse;
+        }
+        #leaderboard-table th, #leaderboard-table td {
+            padding: 10px;
+            border: 2px solid #ffcc00;
+            text-align: center;
+        }
+        #leaderboard-table th {
+            background-color: #ff6600;
+            color: #000;
+        }
+        #leaderboard-table tr:nth-child(even) {
+            background-color: #333;
+        }
+        #name-input {
+            background: white;
+            color: black;
+            font-size: 16px;
+            padding: 15px;
+            width: 80%;
+            max-width: 300px;
+        }
     </style>
 </head>
 <body>
@@ -137,6 +166,7 @@
         <button id="skin-selection-button">Select Ball/Rocket</button>
         <button id="paddle-selection-button">Select Paddle Color</button>
         <button id="instructions-button">How to Play</button>
+        <button id="leaderboard-button">View Leaderboard</button>
         <button id="reset-highscore-button">Reset High Score</button>
     </div>
 
@@ -189,6 +219,32 @@
         <button id="back-to-menu-button-paddle">Back to Menu</button>
     </div>
 
+    <!-- Name Input Menu -->
+    <div class="menu name-input" id="name-input-menu">
+        <h3>Enter Your Name</h3>
+        <input type="text" id="name-input" placeholder="Your Name" maxlength="15">
+        <button id="submit-name-button">Submit</button>
+        <button id="back-to-menu-button-name">Back to Menu</button>
+    </div>
+
+    <!-- Leaderboard Menu -->
+    <div class="menu leaderboard" id="leaderboard">
+        <h1 class="glow">Leaderboard</h1>
+        <table id="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Name</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+                <!-- Leaderboard entries will be added here -->
+            </tbody>
+        </table>
+        <button id="back-from-leaderboard-button">Back to Menu</button>
+    </div>
+
     <!-- Game Screen -->
     <div id="game-screen">
         <h1 class="glow" id="game-title">Labib's Pong</h1>
@@ -214,7 +270,26 @@
 
     <script>
         // ======================
-        // 1. GET ALL DOM ELEMENTS
+        // 1. FIREBASE CONFIGURATION
+        // ======================
+        // ======================
+// 1. FIREBASE CONFIGURATION
+// ======================
+const firebaseConfig = {
+    apiKey: "AIzaSyDp2WY1ZQoJhXQJzQZQoJhXQJzQZQoJhXQ",
+    authDomain: "labibs-pong.firebaseapp.com",
+    databaseURL: "https://labibs-pong-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "labibs-pong",
+    storageBucket: "labibs-pong.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abcdefghijklmnopqrstuv"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+        // ======================
+        // 2. GET ALL DOM ELEMENTS
         // ======================
         const canvas = document.getElementById("pong");
         const context = canvas.getContext("2d");
@@ -233,7 +308,11 @@
         const skinSelectionMenu = document.getElementById("skin-selection");
         const paddleSelectionMenu = document.getElementById("paddle-selection");
         const themeSelectionMenu = document.getElementById("theme-selection");
+        const nameInputMenu = document.getElementById("name-input-menu");
+        const leaderboardMenu = document.getElementById("leaderboard");
         const gameScreen = document.getElementById("game-screen");
+        const nameInput = document.getElementById("name-input");
+        const leaderboardBody = document.getElementById("leaderboard-body");
         
         // Buttons
         const startMenuButton = document.getElementById("start-menu-button");
@@ -241,6 +320,7 @@
         const skinSelectionButton = document.getElementById("skin-selection-button");
         const paddleSelectionButton = document.getElementById("paddle-selection-button");
         const instructionsButton = document.getElementById("instructions-button");
+        const leaderboardButton = document.getElementById("leaderboard-button");
         const resetHighscoreButton = document.getElementById("reset-highscore-button");
         const resetHighscoreGameButton = document.getElementById("reset-highscore-game-button");
         const backButton = document.getElementById("back-button");
@@ -248,6 +328,9 @@
         const backToMenuButtonPaddle = document.getElementById("back-to-menu-button-paddle");
         const backFromThemeButton = document.getElementById("back-from-theme-button");
         const backToMainMenuButton = document.getElementById("back-to-main-menu-button");
+        const backToMenuButtonName = document.getElementById("back-to-menu-button-name");
+        const backFromLeaderboardButton = document.getElementById("back-from-leaderboard-button");
+        const submitNameButton = document.getElementById("submit-name-button");
         const objectSelect = document.getElementById("object-select");
         const normalThemeOption = document.getElementById("normal-theme");
         const dictatorThemeOption = document.getElementById("dictator-theme");
@@ -258,16 +341,18 @@
         const hitSound = document.getElementById("hit-sound");
 
         // ======================
-        // 2. DECLARE GAME VARIABLES
+        // 3. DECLARE GAME VARIABLES
         // ======================
         let highScore = 0;
         let gameInterval;
         let currentObject = "ball";
         let paddleColor = "#ff0000";
         let currentTheme = "normal";
+        let playerName = "";
+        let leaderboardData = [];
 
         // ======================
-        // 3. INITIALIZE GAME OBJECTS
+        // 4. INITIALIZE GAME OBJECTS
         // ======================
         const player = { 
             x: 0, 
@@ -323,7 +408,74 @@
         hasinaBall.image.src = "https://i.postimg.cc/5XpVYWyq/hasina.jpg";
 
         // ======================
-        // 4. GAME FUNCTIONS
+        // 5. LEADERBOARD FUNCTIONS
+        // ======================
+        function saveScoreToLeaderboard(name, score) {
+            if (!name || name.trim() === "") return;
+            
+            const timestamp = Date.now();
+            const scoreData = {
+                name: name.trim(),
+                score: score,
+                timestamp: timestamp
+            };
+            
+            // Push to Firebase
+            database.ref('scores').push(scoreData)
+                .then(() => console.log("Score saved to leaderboard"))
+                .catch(error => console.error("Error saving score:", error));
+        }
+
+        function loadLeaderboard() {
+            database.ref('scores').orderByChild('score').limitToLast(10).once('value')
+                .then(snapshot => {
+                    leaderboardData = [];
+                    snapshot.forEach(childSnapshot => {
+                        const data = childSnapshot.val();
+                        leaderboardData.push({
+                            name: data.name,
+                            score: data.score,
+                            timestamp: data.timestamp
+                        });
+                    });
+                    
+                    // Sort by score (descending)
+                    leaderboardData.sort((a, b) => b.score - a.score);
+                    
+                    // Update UI
+                    updateLeaderboardUI();
+                })
+                .catch(error => console.error("Error loading leaderboard:", error));
+        }
+
+        function updateLeaderboardUI() {
+            leaderboardBody.innerHTML = "";
+            
+            // Show top 10 scores
+            const topScores = leaderboardData.slice(0, 10);
+            
+            topScores.forEach((entry, index) => {
+                const row = document.createElement("tr");
+                
+                const rankCell = document.createElement("td");
+                rankCell.textContent = index + 1;
+                
+                const nameCell = document.createElement("td");
+                nameCell.textContent = entry.name;
+                
+                const scoreCell = document.createElement("td");
+                scoreCell.textContent = entry.score;
+                
+                row.appendChild(rankCell);
+                row.appendChild(nameCell);
+                row.appendChild(scoreCell);
+                
+                leaderboardBody.appendChild(row);
+            });
+        }
+
+        // ======================
+        // 6. GAME FUNCTIONS
         // ======================
 
         // Initialization functions
@@ -519,6 +671,10 @@
             if(activeObject.x - (activeObject.radius || activeObject.width/2) < 0) {
                 stopGame();
                 restartButton.style.display = "block";
+                // Save score to leaderboard when game ends
+                if (playerName && player.score > 0) {
+                    saveScoreToLeaderboard(playerName, player.score);
+                }
             } 
             else if(activeObject.x + (activeObject.radius || activeObject.width/2) > canvas.width) {
                 player.score++;
@@ -528,6 +684,10 @@
                         "Glory to Bangladesh! You won a burger! 🍔" : 
                         "Congratulations! You won a burger! 🍔");
                     stopGame();
+                    // Save score to leaderboard when player wins
+                    if (playerName) {
+                        saveScoreToLeaderboard(playerName, player.score);
+                    }
                 }
                 ai.speed += (player.score >= 2) ? 1 : 0;
                 resetObject();
@@ -618,6 +778,8 @@
             skinSelectionMenu.style.display = "none";
             paddleSelectionMenu.style.display = "none";
             themeSelectionMenu.style.display = "none";
+            nameInputMenu.style.display = "none";
+            leaderboardMenu.style.display = "none";
             gameScreen.style.display = "none";
         }
 
@@ -627,6 +789,8 @@
             skinSelectionMenu.style.display = "none";
             paddleSelectionMenu.style.display = "none";
             themeSelectionMenu.style.display = "none";
+            nameInputMenu.style.display = "none";
+            leaderboardMenu.style.display = "none";
             gameScreen.style.display = "none";
         }
 
@@ -636,6 +800,8 @@
             skinSelectionMenu.style.display = "flex";
             paddleSelectionMenu.style.display = "none";
             themeSelectionMenu.style.display = "none";
+            nameInputMenu.style.display = "none";
+            leaderboardMenu.style.display = "none";
             gameScreen.style.display = "none";
         }
 
@@ -645,6 +811,8 @@
             skinSelectionMenu.style.display = "none";
             paddleSelectionMenu.style.display = "flex";
             themeSelectionMenu.style.display = "none";
+            nameInputMenu.style.display = "none";
+            leaderboardMenu.style.display = "none";
             gameScreen.style.display = "none";
         }
 
@@ -654,15 +822,50 @@
             skinSelectionMenu.style.display = "none";
             paddleSelectionMenu.style.display = "none";
             themeSelectionMenu.style.display = "flex";
+            nameInputMenu.style.display = "none";
+            leaderboardMenu.style.display = "none";
             gameScreen.style.display = "none";
         }
 
-        function showGameScreen() {
+        function showNameInput() {
             mainMenu.style.display = "none";
             instructionsMenu.style.display = "none";
             skinSelectionMenu.style.display = "none";
             paddleSelectionMenu.style.display = "none";
             themeSelectionMenu.style.display = "none";
+            nameInputMenu.style.display = "flex";
+            leaderboardMenu.style.display = "none";
+            gameScreen.style.display = "none";
+        }
+
+        function showLeaderboard() {
+            mainMenu.style.display = "none";
+            instructionsMenu.style.display = "none";
+            skinSelectionMenu.style.display = "none";
+            paddleSelectionMenu.style.display = "none";
+            themeSelectionMenu.style.display = "none";
+            nameInputMenu.style.display = "none";
+            leaderboardMenu.style.display = "flex";
+            gameScreen.style.display = "none";
+            
+            // Load leaderboard data
+            loadLeaderboard();
+        }
+
+        function showGameScreen() {
+            // Check if player name is set
+            if (!playerName || playerName.trim() === "") {
+                showNameInput();
+                return;
+            }
+            
+            mainMenu.style.display = "none";
+            instructionsMenu.style.display = "none";
+            skinSelectionMenu.style.display = "none";
+            paddleSelectionMenu.style.display = "none";
+            themeSelectionMenu.style.display = "none";
+            nameInputMenu.style.display = "none";
+            leaderboardMenu.style.display = "none";
             gameScreen.style.display = "block";
         }
 
@@ -674,7 +877,7 @@
         }
 
         // ======================
-        // 5. SET UP EVENT LISTENERS
+        // 7. SET UP EVENT LISTENERS
         // ======================
         startButton.addEventListener("click", startGame);
         stopButton.addEventListener("click", stopGame);
@@ -685,16 +888,29 @@
         skinSelectionButton.addEventListener("click", showSkinSelection);
         paddleSelectionButton.addEventListener("click", showPaddleSelection);
         instructionsButton.addEventListener("click", showInstructions);
+        leaderboardButton.addEventListener("click", showLeaderboard);
         resetHighscoreButton.addEventListener("click", resetHighScore);
         resetHighscoreGameButton.addEventListener("click", resetHighScore);
         backButton.addEventListener("click", showMainMenu);
         backToMenuButton.addEventListener("click", showMainMenu);
         backToMenuButtonPaddle.addEventListener("click", showMainMenu);
         backFromThemeButton.addEventListener("click", showMainMenu);
+        backToMenuButtonName.addEventListener("click", showMainMenu);
+        backFromLeaderboardButton.addEventListener("click", showMainMenu);
         backToMainMenuButton.addEventListener("click", () => {
             showMainMenu();
             stopGame();
             resetGame();
+        });
+
+        // Name submission
+        submitNameButton.addEventListener("click", function() {
+            playerName = nameInput.value.trim();
+            if (playerName === "") {
+                alert("Please enter your name!");
+                return;
+            }
+            showGameScreen();
         });
 
         normalThemeOption.addEventListener("click", function() {
@@ -755,7 +971,7 @@
         }
 
         // ======================
-        // 6. INITIALIZE THE GAME
+        // 8. INITIALIZE THE GAME
         // ======================
         initHighScore();
         showMainMenu();
