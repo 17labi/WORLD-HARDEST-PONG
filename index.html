@@ -155,6 +155,21 @@
             width: 80%;
             max-width: 300px;
         }
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border: 4px solid #ff0000;
+            z-index: 100;
+            display: none;
+        }
+        .game-over h2 {
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+        }
     </style>
 </head>
 <body>
@@ -260,6 +275,14 @@
         <h5>Score 8 to get a burger as a prize</h5>
     </div>
 
+    <!-- Game Over Screen -->
+    <div class="game-over" id="game-over">
+        <h2>GAME OVER</h2>
+        <p>Your Score: <span id="final-score">0</span></p>
+        <button id="restart-after-game-over">Play Again</button>
+        <button id="back-to-menu-after-game-over">Back to Menu</button>
+    </div>
+
     <!-- Audio Elements -->
     <audio id="background-music" preload="auto" loop>
         <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
@@ -272,22 +295,20 @@
         // ======================
         // 1. FIREBASE CONFIGURATION
         // ======================
-        // ======================
-// 1. FIREBASE CONFIGURATION
-// ======================
-const firebaseConfig = {
-    apiKey: "AIzaSyDp2WY1ZQoJhXQJzQZQoJhXQJzQZQoJhXQ",
-    authDomain: "labibs-pong.firebaseapp.com",
-    databaseURL: "https://labibs-pong-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "labibs-pong",
-    storageBucket: "labibs-pong.appspot.com",
-    messagingSenderId: "123456789012",
-    appId: "1:123456789012:web:abcdefghijklmnopqrstuv"
-};
+        const firebaseConfig = {
+            apiKey: "AIzaSyDp2WY1ZQoJhXQJzQZQoJhXQJzQZQoJhXQ",
+            authDomain: "labibs-pong.firebaseapp.com",
+            databaseURL: "https://labibs-pong-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "labibs-pong",
+            storageBucket: "labibs-pong.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:abcdefghijklmnopqrstuv"
+        };
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
         // ======================
         // 2. GET ALL DOM ELEMENTS
         // ======================
@@ -301,6 +322,8 @@ const database = firebase.database();
         const highScoreDisplay = document.getElementById("high-score");
         const gameTitle = document.getElementById("game-title");
         const gameSubtitle = document.getElementById("game-subtitle");
+        const gameOverScreen = document.getElementById("game-over");
+        const finalScoreDisplay = document.getElementById("final-score");
         
         // Menu elements
         const mainMenu = document.getElementById("main-menu");
@@ -331,6 +354,8 @@ const database = firebase.database();
         const backToMenuButtonName = document.getElementById("back-to-menu-button-name");
         const backFromLeaderboardButton = document.getElementById("back-from-leaderboard-button");
         const submitNameButton = document.getElementById("submit-name-button");
+        const restartAfterGameOver = document.getElementById("restart-after-game-over");
+        const backToMenuAfterGameOver = document.getElementById("back-to-menu-after-game-over");
         const objectSelect = document.getElementById("object-select");
         const normalThemeOption = document.getElementById("normal-theme");
         const dictatorThemeOption = document.getElementById("dictator-theme");
@@ -350,6 +375,8 @@ const database = firebase.database();
         let currentTheme = "normal";
         let playerName = "";
         let leaderboardData = [];
+        let deviceId = "";
+        let playerKey = ""; // For Firebase entry
 
         // ======================
         // 4. INITIALIZE GAME OBJECTS
@@ -408,74 +435,138 @@ const database = firebase.database();
         hasinaBall.image.src = "https://i.postimg.cc/5XpVYWyq/hasina.jpg";
 
         // ======================
-        // 5. LEADERBOARD FUNCTIONS
+        // 5. DEVICE ID AND NAME STORAGE
+        // ======================
+        function getDeviceId() {
+            // Try to get device ID from localStorage
+            let id = localStorage.getItem("deviceId");
+            
+            // If not found, generate a new one
+            if (!id) {
+                id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    const r = Math.random() * 16 | 0;
+                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+                localStorage.setItem("deviceId", id);
+            }
+            
+            return id;
+        }
+
+        function loadPlayerName() {
+            deviceId = getDeviceId();
+            const name = localStorage.getItem(`playerName_${deviceId}`);
+            if (name) {
+                playerName = name;
+                nameInput.value = name;
+            }
+        }
+
+        function savePlayerName(name) {
+            playerName = name.trim();
+            localStorage.setItem(`playerName_${deviceId}`, playerName);
+        }
+
+        // ======================
+        // 6. LEADERBOARD FUNCTIONS
         // ======================
         function saveScoreToLeaderboard(name, score) {
-            if (!name || name.trim() === "") return;
-            
-            const timestamp = Date.now();
-            const scoreData = {
-                name: name.trim(),
-                score: score,
-                timestamp: timestamp
-            };
-            
-            // Push to Firebase
-            database.ref('scores').push(scoreData)
-                .then(() => console.log("Score saved to leaderboard"))
-                .catch(error => console.error("Error saving score:", error));
-        }
+    if (!name || name.trim() === "") return;
+    
+    const timestamp = Date.now();
+    const scoreData = {
+        name: name.trim(),
+        score: score,
+        timestamp: timestamp,
+        deviceId: deviceId
+    };
+    
+    // First check if we have an existing score for this device
+    database.ref('scores')
+        .orderByChild('deviceId')
+        .equalTo(deviceId)
+        .limitToFirst(1)
+        .once('value')
+        .then(snapshot => {
+            if (snapshot.exists()) {
+                // Update existing entry if new score is higher
+                const existingData = snapshot.val();
+                const existingKey = Object.keys(existingData)[0];
+                const existingScore = existingData[existingKey].score;
+                
+                if (score > existingScore) {
+                    return database.ref('scores/' + existingKey).update({
+                        score: score,
+                        timestamp: timestamp
+                    });
+                }
+                return Promise.resolve(); // No update needed
+            } else {
+                // Create new entry
+                return database.ref('scores').push(scoreData);
+            }
+        })
+        .then(() => console.log("Leaderboard updated"))
+        .catch(error => console.error("Error updating leaderboard:", error));
+}
 
         function loadLeaderboard() {
-            database.ref('scores').orderByChild('score').limitToLast(10).once('value')
-                .then(snapshot => {
-                    leaderboardData = [];
-                    snapshot.forEach(childSnapshot => {
-                        const data = childSnapshot.val();
-                        leaderboardData.push({
-                            name: data.name,
-                            score: data.score,
-                            timestamp: data.timestamp
-                        });
-                    });
-                    
-                    // Sort by score (descending)
-                    leaderboardData.sort((a, b) => b.score - a.score);
-                    
-                    // Update UI
-                    updateLeaderboardUI();
-                })
-                .catch(error => console.error("Error loading leaderboard:", error));
-        }
+    database.ref('scores')
+        .orderByChild('score')
+        .once('value')
+        .then(snapshot => {
+            const scoresByPlayer = {};
+            
+            // Collect highest score for each player
+            snapshot.forEach(childSnapshot => {
+                const data = childSnapshot.val();
+                // Keep only the highest score for each player
+                if (!scoresByPlayer[data.name] || data.score > scoresByPlayer[data.name].score) {
+                    scoresByPlayer[data.name] = {
+                        name: data.name,
+                        score: data.score,
+                        timestamp: data.timestamp
+                    };
+                }
+            });
+            
+            // Convert to array and sort by score (descending)
+            leaderboardData = Object.values(scoresByPlayer)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 10); // Get top 10
+            
+            // Update UI
+            updateLeaderboardUI();
+        })
+        .catch(error => console.error("Error loading leaderboard:", error));
+}
 
         function updateLeaderboardUI() {
-            leaderboardBody.innerHTML = "";
-            
-            // Show top 10 scores
-            const topScores = leaderboardData.slice(0, 10);
-            
-            topScores.forEach((entry, index) => {
-                const row = document.createElement("tr");
-                
-                const rankCell = document.createElement("td");
-                rankCell.textContent = index + 1;
-                
-                const nameCell = document.createElement("td");
-                nameCell.textContent = entry.name;
-                
-                const scoreCell = document.createElement("td");
-                scoreCell.textContent = entry.score;
-                
-                row.appendChild(rankCell);
-                row.appendChild(nameCell);
-                row.appendChild(scoreCell);
-                
-                leaderboardBody.appendChild(row);
-            });
-        }
+    leaderboardBody.innerHTML = "";
+    
+    leaderboardData.forEach((entry, index) => {
+        const row = document.createElement("tr");
+        
+        const rankCell = document.createElement("td");
+        rankCell.textContent = index + 1;
+        
+        const nameCell = document.createElement("td");
+        nameCell.textContent = entry.name;
+        
+        const scoreCell = document.createElement("td");
+        scoreCell.textContent = entry.score;
+        
+        row.appendChild(rankCell);
+        row.appendChild(nameCell);
+        row.appendChild(scoreCell);
+        
+        leaderboardBody.appendChild(row);
+    });
+}
 
         // ======================
-        // 6. GAME FUNCTIONS
+        // 7. GAME FUNCTIONS
         // ======================
 
         // Initialization functions
@@ -669,12 +760,7 @@ const database = firebase.database();
 
             // Scoring
             if(activeObject.x - (activeObject.radius || activeObject.width/2) < 0) {
-                stopGame();
-                restartButton.style.display = "block";
-                // Save score to leaderboard when game ends
-                if (playerName && player.score > 0) {
-                    saveScoreToLeaderboard(playerName, player.score);
-                }
+                gameOver();
             } 
             else if(activeObject.x + (activeObject.radius || activeObject.width/2) > canvas.width) {
                 player.score++;
@@ -736,6 +822,7 @@ const database = firebase.database();
             startButton.style.display = "none";
             stopButton.style.display = "block";
             restartButton.style.display = "none";
+            gameOverScreen.style.display = "none";
             gameInterval = setInterval(gameLoop, 1000 / 60);
             try {
                 music.play();
@@ -749,6 +836,17 @@ const database = firebase.database();
             music.pause();
             startButton.style.display = "block";
             stopButton.style.display = "none";
+        }
+
+        function gameOver() {
+            stopGame();
+            finalScoreDisplay.textContent = player.score;
+            gameOverScreen.style.display = "block";
+            
+            // Save score to leaderboard when game ends
+            if (playerName && player.score > 0) {
+                saveScoreToLeaderboard(playerName, player.score);
+            }
         }
 
         function restartGame() {
@@ -781,6 +879,7 @@ const database = firebase.database();
             nameInputMenu.style.display = "none";
             leaderboardMenu.style.display = "none";
             gameScreen.style.display = "none";
+            gameOverScreen.style.display = "none";
         }
 
         function showInstructions() {
@@ -872,109 +971,112 @@ const database = firebase.database();
         // Audio functions
         function playAudio(audioElement) {
             audioElement.play().catch(error => {
-                console.log("Audio playback failed:", error);
-            });
-        }
+                console.log("Audio playback failed:",error);        });
+    }
 
-        // ======================
-        // 7. SET UP EVENT LISTENERS
-        // ======================
-        startButton.addEventListener("click", startGame);
-        stopButton.addEventListener("click", stopGame);
-        restartButton.addEventListener("click", restartGame);
-        
-        startMenuButton.addEventListener("click", showGameScreen);
-        themeSelectionButton.addEventListener("click", showThemeSelection);
-        skinSelectionButton.addEventListener("click", showSkinSelection);
-        paddleSelectionButton.addEventListener("click", showPaddleSelection);
-        instructionsButton.addEventListener("click", showInstructions);
-        leaderboardButton.addEventListener("click", showLeaderboard);
-        resetHighscoreButton.addEventListener("click", resetHighScore);
-        resetHighscoreGameButton.addEventListener("click", resetHighScore);
-        backButton.addEventListener("click", showMainMenu);
-        backToMenuButton.addEventListener("click", showMainMenu);
-        backToMenuButtonPaddle.addEventListener("click", showMainMenu);
-        backFromThemeButton.addEventListener("click", showMainMenu);
-        backToMenuButtonName.addEventListener("click", showMainMenu);
-        backFromLeaderboardButton.addEventListener("click", showMainMenu);
-        backToMainMenuButton.addEventListener("click", () => {
-            showMainMenu();
-            stopGame();
-            resetGame();
-        });
-
-        // Name submission
-        submitNameButton.addEventListener("click", function() {
-            playerName = nameInput.value.trim();
-            if (playerName === "") {
-                alert("Please enter your name!");
-                return;
-            }
-            showGameScreen();
-        });
-
-        normalThemeOption.addEventListener("click", function() {
-            applyTheme("normal");
-            showGameScreen();
-        });
-
-        dictatorThemeOption.addEventListener("click", function() {
-            applyTheme("dictator");
-            showGameScreen();
-        });
-
-        // Paddle Color Selection
-        colorOptions.forEach(option => {
-            option.addEventListener("click", function() {
-                paddleColor = this.getAttribute("data-color");
-                player.color = paddleColor;
-            });
-        });
-
-        objectSelect.addEventListener("change", () => {
-            currentObject = objectSelect.value;
-            resetObject();
-        });
-
-        // Player Paddle Movement
-        canvas.addEventListener("mousemove", (e) => {
-            const rect = canvas.getBoundingClientRect();
-            player.y = e.clientY - rect.top - player.height / 2;
-            if (player.y < 0) player.y = 0;
-            if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
-        });
-
-        // Touch controls
-        let isTouchMoving = false;
-        canvas.addEventListener("touchstart", (e) => {
-            e.preventDefault();
-            isTouchMoving = true;
-            handleTouchMove(e);
-        }, { passive: false });
-
-        canvas.addEventListener("touchmove", (e) => {
-            if (isTouchMoving) {
-                e.preventDefault();
-                handleTouchMove(e);
-            }
-        }, { passive: false });
-
-        canvas.addEventListener("touchend", () => {
-            isTouchMoving = false;
-        });
-
-        function handleTouchMove(e) {
-            const rect = canvas.getBoundingClientRect();
-            const touch = e.touches[0];
-            player.y = touch.clientY - rect.top - player.height / 2;
-            player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
-        }
-
-        // ======================
-        // 8. INITIALIZE THE GAME
-        // ======================
-        initHighScore();
+    // ======================
+    // 8. SET UP EVENT LISTENERS
+    // ======================
+    startButton.addEventListener("click", startGame);
+    stopButton.addEventListener("click", stopGame);
+    restartButton.addEventListener("click", restartGame);
+    restartAfterGameOver.addEventListener("click", restartGame);
+    backToMenuAfterGameOver.addEventListener("click", showMainMenu);
+    
+    startMenuButton.addEventListener("click", showGameScreen);
+    themeSelectionButton.addEventListener("click", showThemeSelection);
+    skinSelectionButton.addEventListener("click", showSkinSelection);
+    paddleSelectionButton.addEventListener("click", showPaddleSelection);
+    instructionsButton.addEventListener("click", showInstructions);
+    leaderboardButton.addEventListener("click", showLeaderboard);
+    resetHighscoreButton.addEventListener("click", resetHighScore);
+    resetHighscoreGameButton.addEventListener("click", resetHighScore);
+    backButton.addEventListener("click", showMainMenu);
+    backToMenuButton.addEventListener("click", showMainMenu);
+    backToMenuButtonPaddle.addEventListener("click", showMainMenu);
+    backFromThemeButton.addEventListener("click", showMainMenu);
+    backToMenuButtonName.addEventListener("click", showMainMenu);
+    backFromLeaderboardButton.addEventListener("click", showMainMenu);
+    backToMainMenuButton.addEventListener("click", () => {
         showMainMenu();
-    </script>
+        stopGame();
+        resetGame();
+    });
+
+    // Name submission
+    submitNameButton.addEventListener("click", function() {
+        const name = nameInput.value.trim();
+        if (name === "") {
+            alert("Please enter your name!");
+            return;
+        }
+        savePlayerName(name);
+        showGameScreen();
+    });
+
+    normalThemeOption.addEventListener("click", function() {
+        applyTheme("normal");
+        showGameScreen();
+    });
+
+    dictatorThemeOption.addEventListener("click", function() {
+        applyTheme("dictator");
+        showGameScreen();
+    });
+
+    // Paddle Color Selection
+    colorOptions.forEach(option => {
+        option.addEventListener("click", function() {
+            paddleColor = this.getAttribute("data-color");
+            player.color = paddleColor;
+        });
+    });
+
+    objectSelect.addEventListener("change", () => {
+        currentObject = objectSelect.value;
+        resetObject();
+    });
+
+    // Player Paddle Movement
+    canvas.addEventListener("mousemove", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        player.y = e.clientY - rect.top - player.height / 2;
+        if (player.y < 0) player.y = 0;
+        if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+    });
+
+    // Touch controls
+    let isTouchMoving = false;
+    canvas.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        isTouchMoving = true;
+        handleTouchMove(e);
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", (e) => {
+        if (isTouchMoving) {
+            e.preventDefault();
+            handleTouchMove(e);
+        }
+    }, { passive: false });
+
+    canvas.addEventListener("touchend", () => {
+        isTouchMoving = false;
+    });
+
+    function handleTouchMove(e) {
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        player.y = touch.clientY - rect.top - player.height / 2;
+        player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
+    }
+
+    // ======================
+    // 9. INITIALIZE THE GAME
+    // ======================
+    initHighScore();
+    loadPlayerName();
+    showMainMenu();
+</script>
 </body>
 </html>
